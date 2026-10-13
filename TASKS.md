@@ -9,7 +9,7 @@ Ordered task list following `SPEC.md` and `AGENT.md`. Work on one task at a time
   - `.gitignore`, MIT `LICENSE`, `backend/.env.example`, `frontend/.env.example`, `README.md`.
   - *Acceptance Check:* `GET /health` returns `{"status": "ok"}`, frontend builds and loads routes cleanly, pytest passes.
 
-- [ ] **Task 2: Database Schema & Seed Data Loader**
+- [x] **Task 2: Database Schema & Seed Data Loader**
   - SQLite models (zones, crowd readings, alerts, families, members, responders, incidents, missing reports, landmark codes).
   - Loader script `backend/seed.py` importing `data/sample_seed.json`.
   - Endpoints: `GET /zones`, `GET /landmarks`, `GET /responders`.

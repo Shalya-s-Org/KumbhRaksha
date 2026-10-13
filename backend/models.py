@@ -1,0 +1,25 @@
+from typing import Optional
+from pydantic import BaseModel
+
+class ZoneOut(BaseModel):
+    id: int
+    name: str
+    lat: float
+    lng: float
+    area_m2: float
+    baseline_count: Optional[int] = 0
+
+class ResponderOut(BaseModel):
+    id: int
+    name: str
+    kind: str
+    lat: float
+    lng: float
+    status: str
+
+class LandmarkOut(BaseModel):
+    code: str
+    zone_id: int
+    lat: float
+    lng: float
+    label: str
