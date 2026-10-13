@@ -16,6 +16,7 @@ from backend.models import (
     CrowdCurrentOut,
     ScenarioRequest,
     AlertOut,
+    AlertPublicOut,
     IncidentCreate,
     IncidentUpdate,
     IncidentOut,
@@ -115,7 +116,7 @@ def get_alerts(active_only: bool = True):
     cursor = conn.cursor()
     query = """
         SELECT a.id, a.zone_id, z.name as zone_name, a.level, a.message_en, a.message_hi, a.message_mr,
-               a.suggested_action, a.created_at, a.active
+               a.suggested_action, a.created_at, a.active, a.broadcasted
         FROM alerts a
         LEFT JOIN zones z ON a.zone_id = z.id
     """
@@ -126,6 +127,64 @@ def get_alerts(active_only: bool = True):
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+@app.post("/alerts/{alert_id}/broadcast")
+def broadcast_alert(alert_id: int):
+    """Broadcast an alert to pilgrims and the public portal."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM alerts WHERE id = ?", (alert_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    cursor.execute("UPDATE alerts SET broadcasted = 1 WHERE id = ?", (alert_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "alert_id": alert_id, "broadcasted": True}
+
+@app.get("/alerts/public", response_model=List[AlertPublicOut])
+def get_public_alerts(lang: str = "en"):
+    """List active broadcasted public alerts in requested language (en, hi, mr)."""
+    lang_code = lang.lower().strip()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT a.id, a.zone_id, z.name as zone_name, a.level,
+               a.message_en, a.message_hi, a.message_mr,
+               a.suggested_action, a.created_at
+        FROM alerts a
+        LEFT JOIN zones z ON a.zone_id = z.id
+        WHERE a.active = 1 AND a.broadcasted = 1
+        ORDER BY a.id DESC
+        """
+    )
+    rows = cursor.fetchall()
+    conn.close()
+
+    result = []
+    for r in rows:
+        if lang_code == "mr":
+            msg = r["message_mr"] or r["message_en"]
+        elif lang_code == "hi":
+            msg = r["message_hi"] or r["message_en"]
+        else:
+            msg = r["message_en"] or ""
+
+        result.append(
+            AlertPublicOut(
+                id=r["id"],
+                zone_id=r["zone_id"],
+                zone_name=r["zone_name"],
+                level=r["level"],
+                message=msg,
+                suggested_action=r["suggested_action"],
+                created_at=r["created_at"],
+                lang=lang_code,
+            )
+        )
+    return result
 
 @app.post("/incidents", response_model=IncidentOut)
 def report_incident(body: IncidentCreate):

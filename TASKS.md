@@ -23,7 +23,7 @@ Ordered task list following `SPEC.md` and `AGENT.md`. Work on one task at a time
   - Endpoints: `GET /crowd/current`, `GET /alerts`, `POST /alerts/{id}/broadcast`, `GET /alerts/public`.
   - *Acceptance Check:* Simulator logs readings; surge scenario raises alert; unit tests verify forecast and alert logic.
 
-- [ ] **Task 4: Control Room Dashboard (/control)**
+- [x] **Task 4: Control Room Dashboard (/control)**
   - Leaflet crowd map with coloured zones (green, amber, red) and density metrics popup.
   - Active surge alert banner with "Broadcast to pilgrims" button.
   - Polling every 3 seconds for live updates.
@@ -58,7 +58,7 @@ Ordered task list following `SPEC.md` and `AGENT.md`. Work on one task at a time
   - Creates corresponding incident / reports; replies under 160 characters.
   - *Acceptance Check:* Chat messages trigger backend actions and return proper SMS-length responses.
 
-- [ ] **Task 10: Multilingual Support & Audio Announcements**
+- [x] **Task 10: Multilingual Support & Audio Announcements**
   - English, Hindi, and Marathi translations for `/pilgrim`.
   - Language switcher persisting user choice.
   - Web Speech API integration reading alerts aloud.

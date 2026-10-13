@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Circle, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { fetchCrowdCurrent, fetchAlerts, triggerScenario, fetchIncidents } from '../api';
+import { fetchCrowdCurrent, fetchAlerts, triggerScenario, fetchIncidents, broadcastAlert } from '../api';
 
 function getZoneColor(level) {
   switch (level) {
@@ -100,6 +100,15 @@ export default function ControlPage() {
       setError(`Failed to reset simulator: ${err.message}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleBroadcast = async (alertId) => {
+    try {
+      await broadcastAlert(alertId);
+      await loadData();
+    } catch (err) {
+      setError(`Failed to broadcast alert: ${err.message}`);
     }
   };
 
@@ -418,6 +427,35 @@ export default function ControlPage() {
                         </div>
                       </div>
                     )}
+
+                    <div style={{ marginTop: '0.45rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.35rem', borderTop: '1px solid #fee2e2' }}>
+                      {alert.broadcasted ? (
+                        <span style={{ background: '#dcfce7', color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.725rem', fontWeight: 'bold' }}>
+                          ✓ Broadcasted to Pilgrims
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleBroadcast(alert.id)}
+                          style={{
+                            background: '#ea580c',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '0.25rem 0.6rem',
+                            fontSize: '0.725rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(234,88,12,0.2)',
+                          }}
+                        >
+                          📢 Broadcast to Pilgrims
+                        </button>
+                      )}
+                      <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>
+                        {new Date(alert.created_at).toLocaleTimeString()}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

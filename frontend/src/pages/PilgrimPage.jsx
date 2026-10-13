@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { fetchLandmarks, reportIncident, createFamily, fetchFamily } from '../api';
+import { fetchLandmarks, reportIncident, createFamily, fetchFamily, fetchPublicAlerts } from '../api';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function PilgrimPage() {
+  const { lang, setLang, t, speakAlert } = useLanguage();
+
   const [activeTab, setActiveTab] = useState('sos'); // 'sos' or 'family'
+  const [publicAlerts, setPublicAlerts] = useState([]);
 
   // --- SOS State ---
   const [incidentType, setIncidentType] = useState('medical');
@@ -28,6 +32,22 @@ export default function PilgrimPage() {
   const [lookupCode, setLookupCode] = useState('');
   const [familyError, setFamilyError] = useState(null);
   const [isFamilySubmitting, setIsFamilySubmitting] = useState(false);
+
+  // Poll public broadcasted alerts
+  const loadPublicAlerts = async () => {
+    try {
+      const data = await fetchPublicAlerts(lang);
+      setPublicAlerts(data);
+    } catch (err) {
+      console.warn('Failed to fetch public alerts:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadPublicAlerts();
+    const interval = setInterval(loadPublicAlerts, 3000);
+    return () => clearInterval(interval);
+  }, [lang]);
 
   // Load landmarks
   useEffect(() => {
@@ -170,12 +190,136 @@ export default function PilgrimPage() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePlayAudio = (alert) => {
+    const spokenText = `${alert.message}. ${alert.suggested_action || ''}`;
+    speakAlert(spokenText, lang);
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '1rem auto', padding: '1rem', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ maxWidth: '600px', margin: '0.75rem auto', padding: '0.75rem', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* Language Switcher Bar */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        borderRadius: '8px',
+        padding: '0.5rem 0.75rem',
+        marginBottom: '1rem',
+      }}>
+        <span style={{ fontSize: '0.825rem', fontWeight: 'bold', color: '#475569' }}>
+          🌐 भाषा / Language:
+        </span>
+        <div style={{ display: 'flex', gap: '0.35rem' }}>
+          <button
+            type="button"
+            onClick={() => setLang('mr')}
+            style={{
+              padding: '0.35rem 0.65rem',
+              borderRadius: '6px',
+              border: lang === 'mr' ? '2px solid #ea580c' : '1px solid #cbd5e1',
+              background: lang === 'mr' ? '#ffedd5' : '#ffffff',
+              color: lang === 'mr' ? '#9a3412' : '#334155',
+              fontWeight: 'bold',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+            }}
+          >
+            मराठी
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang('hi')}
+            style={{
+              padding: '0.35rem 0.65rem',
+              borderRadius: '6px',
+              border: lang === 'hi' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+              background: lang === 'hi' ? '#dbeafe' : '#ffffff',
+              color: lang === 'hi' ? '#1e40af' : '#334155',
+              fontWeight: 'bold',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+            }}
+          >
+            हिन्दी
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang('en')}
+            style={{
+              padding: '0.35rem 0.65rem',
+              borderRadius: '6px',
+              border: lang === 'en' ? '2px solid #059669' : '1px solid #cbd5e1',
+              background: lang === 'en' ? '#d1fae5' : '#ffffff',
+              color: lang === 'en' ? '#065f46' : '#334155',
+              fontWeight: 'bold',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+            }}
+          >
+            English
+          </button>
+        </div>
+      </div>
+
+      {/* Broadcast Public Alerts Banner (with Audio) */}
+      {publicAlerts.length > 0 && (
+        <div style={{ marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span>📢</span> {t('public_alerts_title')}
+          </div>
+          {publicAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              style={{
+                background: '#fff1f2',
+                border: '2px solid #f43f5e',
+                borderRadius: '10px',
+                padding: '0.85rem',
+                boxShadow: '0 2px 5px rgba(244, 63, 94, 0.15)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <span style={{ fontWeight: 'bold', color: '#9f1239', fontSize: '0.95rem' }}>
+                  ⚠️ {alert.zone_name || `Zone ${alert.zone_id}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handlePlayAudio(alert)}
+                  style={{
+                    background: '#e11d48',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '0.35rem 0.65rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(225, 29, 72, 0.3)',
+                  }}
+                >
+                  {t('listen_audio')}
+                </button>
+              </div>
+
+              <div style={{ fontSize: '0.9rem', color: '#1f2937', lineHeight: '1.4' }}>
+                {alert.message}
+              </div>
+
+              {alert.suggested_action && (
+                <div style={{ marginTop: '0.45rem', padding: '0.4rem 0.6rem', background: '#fef3c7', borderRadius: '6px', border: '1px solid #fde68a', fontSize: '0.825rem', color: '#92400e', fontWeight: '500' }}>
+                  👉 {alert.suggested_action}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Tab Switcher */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
         <button
@@ -193,7 +337,7 @@ export default function PilgrimPage() {
             boxShadow: activeTab === 'sos' ? '0 2px 4px rgba(220,38,38,0.2)' : 'none',
           }}
         >
-          🚨 Emergency SOS
+          {t('tab_sos')}
         </button>
         <button
           type="button"
@@ -210,7 +354,7 @@ export default function PilgrimPage() {
             boxShadow: activeTab === 'family' ? '0 2px 4px rgba(37,99,235,0.2)' : 'none',
           }}
         >
-          👨‍👩‍👧‍👦 Family QR Group
+          {t('tab_family')}
         </button>
       </div>
 
@@ -230,10 +374,10 @@ export default function PilgrimPage() {
             }}>
               <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🚨</div>
               <h1 style={{ margin: '0 0 0.5rem 0', color: '#065f46', fontSize: '1.5rem' }}>
-                Help Is On The Way!
+                {t('help_on_the_way')}
               </h1>
               <p style={{ margin: '0 0 1rem 0', color: '#047857', fontSize: '0.95rem', fontWeight: '500' }}>
-                Your emergency alert was received and dispatched.
+                {t('sos_dispatched_desc')}
               </p>
 
               <div style={{
@@ -245,7 +389,7 @@ export default function PilgrimPage() {
                 marginBottom: '1rem',
               }}>
                 <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 'bold' }}>
-                  Assigned Emergency Team
+                  {t('assigned_team')}
                 </div>
                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#111827', marginTop: '0.2rem' }}>
                   {confirmedIncident.responder_name || 'Emergency Team Dispatched'}
@@ -257,19 +401,23 @@ export default function PilgrimPage() {
                 <hr style={{ border: 'none', borderTop: '1px solid #f3f4f6', margin: '0.75rem 0' }} />
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.3rem' }}>
-                  <span>Ticket Ref:</span>
+                  <span>{t('ticket_ref')}</span>
                   <strong>#{confirmedIncident.id}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.3rem' }}>
-                  <span>Type:</span>
+                  <span>{t('emergency_type')}</span>
                   <strong style={{ textTransform: 'capitalize' }}>{confirmedIncident.type}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#4b5563' }}>
-                  <span>Status:</span>
+                  <span>{t('status')}</span>
                   <span style={{ color: '#059669', fontWeight: 'bold', textTransform: 'uppercase' }}>
                     {confirmedIncident.status}
                   </span>
                 </div>
+              </div>
+
+              <div style={{ background: '#fef3c7', padding: '0.75rem', borderRadius: '6px', fontSize: '0.85rem', color: '#92400e', marginBottom: '1.25rem' }}>
+                💡 {t('safety_advice')}
               </div>
 
               <button
@@ -287,17 +435,17 @@ export default function PilgrimPage() {
                   cursor: 'pointer',
                 }}
               >
-                Submit Another Request / Back
+                {t('btn_another_sos')}
               </button>
             </div>
           ) : (
             <div>
               <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                 <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.6rem', color: '#111827' }}>
-                  Pilgrim Emergency SOS
+                  {t('app_title')}
                 </h1>
                 <p style={{ margin: 0, color: '#4b5563', fontSize: '0.85rem' }}>
-                  One-tap alert with automatic location and responder dispatch
+                  {t('app_subtitle')}
                 </p>
               </div>
 
@@ -310,7 +458,7 @@ export default function PilgrimPage() {
               <form onSubmit={handleSOSSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '0.9rem', color: '#1f2937', marginBottom: '0.4rem' }}>
-                    1. Emergency Type:
+                    {t('step_type')}
                   </label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
                     <button
@@ -330,7 +478,7 @@ export default function PilgrimPage() {
                     >
                       <span style={{ fontSize: '1.75rem' }}>🚑</span>
                       <span style={{ fontSize: '0.85rem', fontWeight: incidentType === 'medical' ? 'bold' : 'normal', color: incidentType === 'medical' ? '#dc2626' : '#374151' }}>
-                        Medical
+                        {t('type_medical')}
                       </span>
                     </button>
 
@@ -351,7 +499,7 @@ export default function PilgrimPage() {
                     >
                       <span style={{ fontSize: '1.75rem' }}>🔍</span>
                       <span style={{ fontSize: '0.85rem', fontWeight: incidentType === 'lost' ? 'bold' : 'normal', color: incidentType === 'lost' ? '#2563eb' : '#374151' }}>
-                        Lost Person
+                        {t('type_lost')}
                       </span>
                     </button>
 
@@ -372,7 +520,7 @@ export default function PilgrimPage() {
                     >
                       <span style={{ fontSize: '1.75rem' }}>⚠️</span>
                       <span style={{ fontSize: '0.85rem', fontWeight: incidentType === 'crowd' ? 'bold' : 'normal', color: incidentType === 'crowd' ? '#d97706' : '#374151' }}>
-                        Crowd Surge
+                        {t('type_crowd')}
                       </span>
                     </button>
                   </div>
@@ -380,14 +528,14 @@ export default function PilgrimPage() {
 
                 <div style={{ background: '#f9fafb', padding: '0.85rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '0.9rem', color: '#1f2937', marginBottom: '0.4rem' }}>
-                    2. Location:
+                    {t('step_location')}
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
                     <span>
-                      {gpsStatus === 'detecting' && '📡 Detecting GPS...'}
-                      {gpsStatus === 'success' && '📍 GPS Location Acquired'}
-                      {gpsStatus === 'denied' && '⚠️ Using Physical Landmark Signs'}
-                      {gpsStatus === 'unsupported' && '⚠️ Using Physical Landmark Signs'}
+                      {gpsStatus === 'detecting' && t('gps_detecting')}
+                      {gpsStatus === 'success' && t('gps_acquired')}
+                      {gpsStatus === 'denied' && t('gps_denied')}
+                      {gpsStatus === 'unsupported' && t('gps_unsupported')}
                     </span>
                     {gpsStatus === 'success' && (
                       <button
@@ -395,7 +543,7 @@ export default function PilgrimPage() {
                         onClick={() => setLocationMode(locationMode === 'gps' ? 'landmark' : 'gps')}
                         style={{ background: 'none', border: 'none', color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem' }}
                       >
-                        {locationMode === 'gps' ? 'Use Landmark' : 'Use GPS'}
+                        {locationMode === 'gps' ? t('use_landmark') : t('use_gps')}
                       </button>
                     )}
                   </div>
@@ -421,7 +569,7 @@ export default function PilgrimPage() {
 
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '0.85rem', color: '#374151', marginBottom: '0.3rem' }}>
-                    3. Contact Phone (Optional):
+                    {t('step_phone')}
                   </label>
                   <input
                     type="tel"
@@ -450,7 +598,7 @@ export default function PilgrimPage() {
                     marginTop: '0.25rem',
                   }}
                 >
-                  {isSosSubmitting ? 'Dispatching Help...' : '🚨 Send Emergency SOS 🚨'}
+                  {isSosSubmitting ? t('btn_dispatching') : t('btn_sos')}
                 </button>
               </form>
             </div>
@@ -479,17 +627,17 @@ export default function PilgrimPage() {
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                     <button
                       type="button"
-                      onClick={handlePrint}
+                      onClick={() => window.print()}
                       style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.5rem 0.85rem', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
                     >
-                      🖨️ Print / Save Cards
+                      {t('btn_print')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setCreatedFamily(null)}
                       style={{ background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
                     >
-                      New Family
+                      {t('btn_new_family')}
                     </button>
                   </div>
                 </div>
@@ -517,21 +665,21 @@ export default function PilgrimPage() {
                     >
                       <div style={{ flex: '1' }}>
                         <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280', fontWeight: 'bold' }}>
-                          Simhastha Kumbh Mela Wristband
+                          {t('wristband_title')}
                         </div>
                         <h3 style={{ margin: '0.2rem 0', fontSize: '1.25rem', color: '#111827' }}>
                           {member.name} ({member.age} yrs)
                         </h3>
                         <div style={{ fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.35rem' }}>
-                          Relation: <strong>{member.relation || 'Member'}</strong>
+                          {t('relation_label')} <strong>{member.relation || 'Member'}</strong>
                         </div>
                         <div style={{ fontSize: '0.85rem', color: '#1e40af', background: '#dbeafe', padding: '0.25rem 0.5rem', borderRadius: '4px', display: 'inline-block' }}>
-                          Emergency Contact: <strong>{createdFamily.phone}</strong>
+                          {t('emergency_contact_label')} <strong>{createdFamily.phone}</strong>
                         </div>
 
                         {member.medical_note && (
                           <div style={{ marginTop: '0.45rem', fontSize: '0.8rem', color: '#991b1b', background: '#fee2e2', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>
-                            ⚠️ Medical: {member.medical_note}
+                            ⚠️ {t('medical_alert_label')} {member.medical_note}
                           </div>
                         )}
 
@@ -542,7 +690,7 @@ export default function PilgrimPage() {
                             rel="noreferrer"
                             style={{ color: '#2563eb', textDecoration: 'underline' }}
                           >
-                            Simulate Scan Details ➔
+                            {t('simulate_scan')}
                           </a>
                         </div>
                       </div>
@@ -563,10 +711,10 @@ export default function PilgrimPage() {
             <div>
               <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
                 <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.5rem', color: '#111827' }}>
-                  Create Family Safety Group
+                  {t('family_title')}
                 </h1>
                 <p style={{ margin: 0, color: '#4b5563', fontSize: '0.85rem' }}>
-                  Generate physical or digital QR wristbands for elders and children
+                  {t('family_subtitle')}
                 </p>
               </div>
 
@@ -575,7 +723,7 @@ export default function PilgrimPage() {
                 <form onSubmit={handleLookupFamily} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <input
                     type="text"
-                    placeholder="Already have code? (e.g. DEMO001)"
+                    placeholder={t('lookup_placeholder')}
                     value={lookupCode}
                     onChange={(e) => setLookupCode(e.target.value)}
                     style={{ flex: 1, padding: '0.45rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
@@ -585,7 +733,7 @@ export default function PilgrimPage() {
                     disabled={isFamilySubmitting}
                     style={{ background: '#475569', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.45rem 0.85rem', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
                   >
-                    View Group
+                    {t('btn_view_group')}
                   </button>
                 </form>
               </div>
@@ -600,7 +748,7 @@ export default function PilgrimPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <label style={{ display: 'block', fontWeight: 'bold', fontSize: '0.85rem', color: '#374151', marginBottom: '0.25rem' }}>
-                      Family Head Name:
+                      {t('head_name_label')}
                     </label>
                     <input
                       type="text"
@@ -614,7 +762,7 @@ export default function PilgrimPage() {
 
                   <div>
                     <label style={{ display: 'block', fontWeight: 'bold', fontSize: '0.85rem', color: '#374151', marginBottom: '0.25rem' }}>
-                      Emergency Phone:
+                      {t('emergency_phone_label')}
                     </label>
                     <input
                       type="tel"
@@ -630,14 +778,14 @@ export default function PilgrimPage() {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <label style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#1f2937' }}>
-                      Family Members:
+                      {t('members_label')}
                     </label>
                     <button
                       type="button"
                       onClick={handleAddMember}
                       style={{ background: '#e0e7ff', color: '#3730a3', border: 'none', borderRadius: '4px', padding: '0.25rem 0.5rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
                     >
-                      + Add Member
+                      {t('btn_add_member')}
                     </button>
                   </div>
 
@@ -657,7 +805,7 @@ export default function PilgrimPage() {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#4b5563' }}>
-                            Member #{idx + 1}
+                            {t('member_num')} #{idx + 1}
                           </span>
                           {members.length > 1 && (
                             <button
@@ -665,7 +813,7 @@ export default function PilgrimPage() {
                               onClick={() => handleRemoveMember(idx)}
                               style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.75rem', cursor: 'pointer' }}
                             >
-                              Remove
+                              {t('remove')}
                             </button>
                           )}
                         </div>
@@ -673,7 +821,7 @@ export default function PilgrimPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.5rem' }}>
                           <input
                             type="text"
-                            placeholder="Full Name"
+                            placeholder={t('name_placeholder')}
                             value={m.name}
                             onChange={(e) => handleMemberChange(idx, 'name', e.target.value)}
                             required
@@ -681,7 +829,7 @@ export default function PilgrimPage() {
                           />
                           <input
                             type="number"
-                            placeholder="Age"
+                            placeholder={t('age_placeholder')}
                             value={m.age}
                             onChange={(e) => handleMemberChange(idx, 'age', e.target.value)}
                             required
@@ -689,7 +837,7 @@ export default function PilgrimPage() {
                           />
                           <input
                             type="text"
-                            placeholder="Relation"
+                            placeholder={t('relation_placeholder')}
                             value={m.relation}
                             onChange={(e) => handleMemberChange(idx, 'relation', e.target.value)}
                             style={{ padding: '0.45rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
@@ -698,7 +846,7 @@ export default function PilgrimPage() {
 
                         <input
                           type="text"
-                          placeholder="Medical Note (e.g. Diabetic, takes insulin, blood group)"
+                          placeholder={t('medical_placeholder')}
                           value={m.medical_note}
                           onChange={(e) => handleMemberChange(idx, 'medical_note', e.target.value)}
                           style={{ padding: '0.45rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.8rem' }}
@@ -724,7 +872,7 @@ export default function PilgrimPage() {
                     marginTop: '0.5rem',
                   }}
                 >
-                  {isFamilySubmitting ? 'Generating Wristbands...' : 'Generate Family QR Codes'}
+                  {isFamilySubmitting ? t('btn_generating') : t('btn_generate_qr')}
                 </button>
               </form>
             </div>

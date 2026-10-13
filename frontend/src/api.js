@@ -24,6 +24,24 @@ export async function fetchAlerts(activeOnly = true) {
   return response.json();
 }
 
+export async function broadcastAlert(alertId) {
+  const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/broadcast`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to broadcast alert: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchPublicAlerts(lang = 'en') {
+  const response = await fetch(`${API_BASE_URL}/alerts/public?lang=${encodeURIComponent(lang)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch public alerts: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function triggerScenario(scenario, zoneId = null) {
   const payload = { scenario };
   if (zoneId !== null && zoneId !== undefined) {
@@ -103,6 +121,8 @@ export default {
   checkHealth,
   fetchCrowdCurrent,
   fetchAlerts,
+  broadcastAlert,
+  fetchPublicAlerts,
   triggerScenario,
   fetchLandmarks,
   reportIncident,

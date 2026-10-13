@@ -51,6 +51,17 @@ class AlertOut(BaseModel):
     suggested_action: Optional[str] = None
     created_at: str
     active: int
+    broadcasted: Optional[int] = 0
+
+class AlertPublicOut(BaseModel):
+    id: int
+    zone_id: int
+    zone_name: Optional[str] = None
+    level: str
+    message: str
+    suggested_action: Optional[str] = None
+    created_at: str
+    lang: str
 
 class IncidentCreate(BaseModel):
     type: str  # "medical" | "lost" | "crowd"

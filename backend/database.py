@@ -66,9 +66,16 @@ def init_db(db_path: Optional[str] = None) -> None:
         suggested_action TEXT,
         created_at TEXT NOT NULL,
         active INTEGER DEFAULT 1,
+        broadcasted INTEGER DEFAULT 0,
         FOREIGN KEY (zone_id) REFERENCES zones(id)
     );
     """)
+
+    # Ensure broadcasted column exists if table was created previously
+    try:
+        cursor.execute("ALTER TABLE alerts ADD COLUMN broadcasted INTEGER DEFAULT 0;")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
 
     # 4. families
     cursor.execute("""
