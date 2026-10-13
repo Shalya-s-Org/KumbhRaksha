@@ -35,13 +35,13 @@ Ordered task list following `SPEC.md` and `AGENT.md`. Work on one task at a time
   - Live incident feed and map markers on `/control`.
   - *Acceptance Check:* Submitting SOS assigns nearest responder; incident shows on control dashboard within 1 polling cycle.
 
-- [ ] **Task 6: Family Safety Group & QR Code Generation**
+- [x] **Task 6: Family Safety Group & QR Code Generation**
   - Family creation on `/pilgrim` (head name, phone, members, medical notes).
   - Member token and QR code rendering (`qrcode.react`).
   - Printable/viewable cards for all family members.
   - *Acceptance Check:* Creating family yields unique tokens and visible QR codes per member.
 
-- [ ] **Task 7: Volunteer QR Scanner (/scan/:token)**
+- [x] **Task 7: Volunteer QR Scanner (/scan/:token)**
   - Volunteer view showing member details, age, emergency contact, and medical note by token.
   - Endpoint `GET /members/by-token/{token}`.
   - *Acceptance Check:* Visiting `/scan/:token` displays member details and family phone correctly.

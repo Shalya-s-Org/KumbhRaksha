@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 class ZoneOut(BaseModel):
@@ -79,3 +79,43 @@ class IncidentOut(BaseModel):
     responder_name: Optional[str] = None
     responder_kind: Optional[str] = None
     created_at: str
+
+class MemberCreate(BaseModel):
+    name: str
+    age: int
+    relation: Optional[str] = ""
+    medical_note: Optional[str] = ""
+
+class FamilyCreate(BaseModel):
+    head_name: str
+    phone: str
+    members: List[MemberCreate] = []
+
+class MemberOut(BaseModel):
+    id: int
+    family_id: int
+    name: str
+    age: int
+    relation: Optional[str] = ""
+    medical_note: Optional[str] = ""
+    qr_token: str
+
+class FamilyOut(BaseModel):
+    id: int
+    code: str
+    head_name: str
+    phone: str
+    created_at: str
+    members: List[MemberOut] = []
+
+class MemberDetailsOut(BaseModel):
+    id: int
+    family_id: int
+    family_code: str
+    head_name: str
+    head_phone: str
+    name: str
+    age: int
+    relation: Optional[str] = ""
+    medical_note: Optional[str] = ""
+    qr_token: str

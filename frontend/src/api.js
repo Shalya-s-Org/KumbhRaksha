@@ -71,6 +71,34 @@ export async function fetchIncidents(status = null) {
   return response.json();
 }
 
+export async function createFamily(familyData) {
+  const response = await fetch(`${API_BASE_URL}/families`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(familyData),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to create family: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchFamily(code) {
+  const response = await fetch(`${API_BASE_URL}/families/${encodeURIComponent(code)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch family: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchMemberByToken(token) {
+  const response = await fetch(`${API_BASE_URL}/members/by-token/${encodeURIComponent(token)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch member details: ${response.status}`);
+  }
+  return response.json();
+}
+
 export default {
   checkHealth,
   fetchCrowdCurrent,
@@ -79,4 +107,7 @@ export default {
   fetchLandmarks,
   reportIncident,
   fetchIncidents,
+  createFamily,
+  fetchFamily,
+  fetchMemberByToken,
 };

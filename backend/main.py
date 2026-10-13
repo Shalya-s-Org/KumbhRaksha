@@ -1,4 +1,7 @@
 import os
+import secrets
+import uuid
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException
@@ -16,6 +19,10 @@ from backend.models import (
     IncidentCreate,
     IncidentUpdate,
     IncidentOut,
+    FamilyCreate,
+    FamilyOut,
+    MemberOut,
+    MemberDetailsOut,
 )
 from backend.simulator import (
     start_simulator,
@@ -221,4 +228,123 @@ def update_incident(incident_id: int, body: IncidentUpdate):
     )
     row = cursor.fetchone()
     conn.close()
+    return dict(row)
+
+@app.post("/families", response_model=FamilyOut)
+def create_family(body: FamilyCreate):
+    """Create a pilgrim family safety group and generate unique QR tokens for each member."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    family_code = f"FAM-{secrets.token_hex(3).upper()}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    cursor.execute(
+        """
+        INSERT INTO families (code, head_name, phone, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (family_code, body.head_name.strip(), body.phone.strip(), now_iso),
+    )
+    family_id = cursor.lastrowid
+
+    created_members = []
+    for m in body.members:
+        token = f"tok-{uuid.uuid4().hex[:10]}"
+        cursor.execute(
+            """
+            INSERT INTO members (family_id, name, age, relation, medical_note, qr_token)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                family_id,
+                m.name.strip(),
+                m.age,
+                (m.relation or "").strip(),
+                (m.medical_note or "").strip(),
+                token,
+            ),
+        )
+        member_id = cursor.lastrowid
+        created_members.append(
+            MemberOut(
+                id=member_id,
+                family_id=family_id,
+                name=m.name.strip(),
+                age=m.age,
+                relation=(m.relation or "").strip(),
+                medical_note=(m.medical_note or "").strip(),
+                qr_token=token,
+            )
+        )
+
+    conn.commit()
+    conn.close()
+
+    return FamilyOut(
+        id=family_id,
+        code=family_code,
+        head_name=body.head_name.strip(),
+        phone=body.phone.strip(),
+        created_at=now_iso,
+        members=created_members,
+    )
+
+@app.get("/families/{code}", response_model=FamilyOut)
+def get_family_by_code(code: str):
+    """Retrieve family details and member list by family code."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, code, head_name, phone, created_at FROM families WHERE code = ?",
+        (code.strip().upper(),),
+    )
+    fam = cursor.fetchone()
+    if not fam:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Family not found")
+
+    family_id = fam["id"]
+    cursor.execute(
+        """
+        SELECT id, family_id, name, age, relation, medical_note, qr_token
+        FROM members
+        WHERE family_id = ?
+        ORDER BY id ASC
+        """,
+        (family_id,),
+    )
+    members_rows = cursor.fetchall()
+    conn.close()
+
+    members = [MemberOut(**dict(m)) for m in members_rows]
+    return FamilyOut(
+        id=fam["id"],
+        code=fam["code"],
+        head_name=fam["head_name"],
+        phone=fam["phone"],
+        created_at=fam["created_at"],
+        members=members,
+    )
+
+@app.get("/members/by-token/{token}", response_model=MemberDetailsOut)
+def get_member_by_token(token: str):
+    """Volunteer lookup: retrieve pilgrim member identity, medical notes, and family head contact by QR token."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT m.id, m.family_id, f.code as family_code, f.head_name, f.phone as head_phone,
+               m.name, m.age, m.relation, m.medical_note, m.qr_token
+        FROM members m
+        JOIN families f ON m.family_id = f.id
+        WHERE m.qr_token = ?
+        """,
+        (token.strip(),),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Member QR token not found")
+
     return dict(row)
