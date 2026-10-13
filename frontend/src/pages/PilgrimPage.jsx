@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { fetchLandmarks, reportIncident, createFamily, fetchFamily, fetchPublicAlerts } from '../api';
+import { fetchLandmarks, reportIncident, createFamily, fetchFamily, fetchPublicAlerts, fileReport } from '../api';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export default function PilgrimPage() {
   const { lang, setLang, t, speakAlert } = useLanguage();
 
-  const [activeTab, setActiveTab] = useState('sos'); // 'sos' or 'family'
+  const [activeTab, setActiveTab] = useState('sos'); // 'sos', 'family', or 'lost_found'
   const [publicAlerts, setPublicAlerts] = useState([]);
 
   // --- SOS State ---
@@ -32,6 +32,18 @@ export default function PilgrimPage() {
   const [lookupCode, setLookupCode] = useState('');
   const [familyError, setFamilyError] = useState(null);
   const [isFamilySubmitting, setIsFamilySubmitting] = useState(false);
+
+  // --- Lost & Found State ---
+  const [reportKind, setReportKind] = useState('lost'); // 'lost' or 'found'
+  const [reportName, setReportName] = useState('');
+  const [reportAge, setReportAge] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportPhone, setReportPhone] = useState('');
+  const [hasConsent, setHasConsent] = useState(false);
+  const [isReportSubmitting, setIsReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState(null);
+  const [submittedReport, setSubmittedReport] = useState(null);
+
 
   // Poll public broadcasted alerts
   const loadPublicAlerts = async () => {
@@ -195,6 +207,46 @@ export default function PilgrimPage() {
     speakAlert(spokenText, lang);
   };
 
+  const handleReportSubmit = async (e) => {
+    e.preventDefault();
+    setReportError(null);
+
+    if (!hasConsent) {
+      setReportError(t('consent_required_error'));
+      return;
+    }
+
+    if (!reportName.trim()) {
+      setReportError('Name is required.');
+      return;
+    }
+
+    setIsReportSubmitting(true);
+    try {
+      const payload = {
+        kind: reportKind,
+        name: reportName.trim(),
+        age: reportAge ? parseInt(reportAge, 10) : null,
+        description: reportDescription.trim() || null,
+        reporter_phone: reportPhone.trim() || null,
+      };
+      const res = await fileReport(payload);
+      setSubmittedReport(res);
+      // Reset form
+      setReportName('');
+      setReportAge('');
+      setReportDescription('');
+      setReportPhone('');
+      setHasConsent(false);
+    } catch (err) {
+      console.error('Failed to submit missing report:', err);
+      setReportError(err.message || 'Error submitting report.');
+    } finally {
+      setIsReportSubmitting(false);
+    }
+  };
+
+
   return (
     <div style={{ maxWidth: '600px', margin: '0.75rem auto', padding: '0.75rem', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Language Switcher Bar */}
@@ -321,18 +373,18 @@ export default function PilgrimPage() {
       )}
 
       {/* Tab Switcher */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem', marginBottom: '1.25rem' }}>
         <button
           type="button"
           onClick={() => setActiveTab('sos')}
           style={{
-            padding: '0.75rem',
+            padding: '0.65rem 0.4rem',
             borderRadius: '8px',
             border: 'none',
             background: activeTab === 'sos' ? '#dc2626' : '#f3f4f6',
             color: activeTab === 'sos' ? '#ffffff' : '#374151',
             fontWeight: 'bold',
-            fontSize: '1rem',
+            fontSize: '0.875rem',
             cursor: 'pointer',
             boxShadow: activeTab === 'sos' ? '0 2px 4px rgba(220,38,38,0.2)' : 'none',
           }}
@@ -343,18 +395,35 @@ export default function PilgrimPage() {
           type="button"
           onClick={() => setActiveTab('family')}
           style={{
-            padding: '0.75rem',
+            padding: '0.65rem 0.4rem',
             borderRadius: '8px',
             border: 'none',
             background: activeTab === 'family' ? '#2563eb' : '#f3f4f6',
             color: activeTab === 'family' ? '#ffffff' : '#374151',
             fontWeight: 'bold',
-            fontSize: '1rem',
+            fontSize: '0.875rem',
             cursor: 'pointer',
             boxShadow: activeTab === 'family' ? '0 2px 4px rgba(37,99,235,0.2)' : 'none',
           }}
         >
           {t('tab_family')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('lost_found')}
+          style={{
+            padding: '0.65rem 0.4rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeTab === 'lost_found' ? '#0d9488' : '#f3f4f6',
+            color: activeTab === 'lost_found' ? '#ffffff' : '#374151',
+            fontWeight: 'bold',
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            boxShadow: activeTab === 'lost_found' ? '0 2px 4px rgba(13,148,136,0.2)' : 'none',
+          }}
+        >
+          {t('tab_lost_found')}
         </button>
       </div>
 
@@ -879,6 +948,302 @@ export default function PilgrimPage() {
           )}
         </div>
       )}
+
+      {/* ============================================================== */}
+      {/* TAB 3: LOST & FOUND REPORTING                                  */}
+      {/* ============================================================== */}
+      {activeTab === 'lost_found' && (
+        <div>
+          {submittedReport ? (
+            <div
+              style={{
+                background: '#f0fdfa',
+                border: '2px solid #0d9488',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                textAlign: 'center',
+                boxShadow: '0 4px 6px rgba(13,148,136,0.1)',
+              }}
+            >
+              <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
+              <h2 style={{ color: '#0f766e', margin: '0 0 0.5rem 0', fontSize: '1.35rem' }}>
+                {t('report_success_title')}
+              </h2>
+              <p style={{ color: '#134e4a', fontSize: '0.9rem', margin: '0 0 1rem 0' }}>
+                {t('report_success_desc')}
+              </p>
+
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #ccfbf1',
+                  borderRadius: '8px',
+                  padding: '0.85rem',
+                  marginBottom: '1rem',
+                  textAlign: 'left',
+                  fontSize: '0.875rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                  <span style={{ color: '#64748b' }}>{t('report_id_label')}</span>
+                  <span style={{ fontWeight: 'bold', color: '#0f766e' }}>#{submittedReport.id}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                  <span style={{ color: '#64748b' }}>{t('person_name_label')}</span>
+                  <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{submittedReport.name}</span>
+                </div>
+                {submittedReport.age && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                    <span style={{ color: '#64748b' }}>{t('person_age_label')}</span>
+                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{submittedReport.age}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>{t('status')}</span>
+                  <span style={{ textTransform: 'uppercase', fontWeight: 'bold', color: '#0d9488' }}>
+                    {submittedReport.status}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSubmittedReport(null)}
+                style={{
+                  width: '100%',
+                  background: '#0d9488',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.75rem',
+                  fontSize: '0.95rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('btn_another_report')}
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+              }}
+            >
+              <h2 style={{ margin: '0 0 0.25rem 0', color: '#134e4a', fontSize: '1.25rem' }}>
+                {t('lost_found_title')}
+              </h2>
+              <p style={{ margin: '0 0 1rem 0', color: '#64748b', fontSize: '0.85rem' }}>
+                {t('lost_found_subtitle')}
+              </p>
+
+              {reportError && (
+                <div
+                  style={{
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    color: '#b91c1c',
+                    padding: '0.65rem',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    marginBottom: '1rem',
+                  }}
+                >
+                  ⚠️ {reportError}
+                </div>
+              )}
+
+              <form onSubmit={handleReportSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {/* Kind Selection */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.35rem' }}>
+                    {t('step_type')}
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setReportKind('lost')}
+                      style={{
+                        padding: '0.65rem',
+                        borderRadius: '6px',
+                        border: reportKind === 'lost' ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                        background: reportKind === 'lost' ? '#fef2f2' : '#ffffff',
+                        color: reportKind === 'lost' ? '#b91c1c' : '#334155',
+                        fontWeight: 'bold',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t('report_kind_lost')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReportKind('found')}
+                      style={{
+                        padding: '0.65rem',
+                        borderRadius: '6px',
+                        border: reportKind === 'found' ? '2px solid #0d9488' : '1px solid #cbd5e1',
+                        background: reportKind === 'found' ? '#f0fdfa' : '#ffffff',
+                        color: reportKind === 'found' ? '#0f766e' : '#334155',
+                        fontWeight: 'bold',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t('report_kind_found')}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Name & Age */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.25rem' }}>
+                      {t('person_name_label')}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={t('person_name_placeholder')}
+                      value={reportName}
+                      onChange={(e) => setReportName(e.target.value)}
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '0.6rem',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.9rem',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.25rem' }}>
+                      {t('person_age_label')}
+                    </label>
+                    <input
+                      type="number"
+                      placeholder={t('person_age_placeholder')}
+                      value={reportAge}
+                      onChange={(e) => setReportAge(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.6rem',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.9rem',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Description & Clothing */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.25rem' }}>
+                    {t('person_desc_label')}
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder={t('person_desc_placeholder')}
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      boxSizing: 'border-box',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                    }}
+                  />
+                </div>
+
+                {/* Contact Phone */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.25rem' }}>
+                    {t('reporter_phone_label')}
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder={t('reporter_phone_placeholder')}
+                    value={reportPhone}
+                    onChange={(e) => setReportPhone(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.9rem',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                {/* Consent Note (Mandatory per SPEC.md Section 10) */}
+                <div
+                  style={{
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '8px',
+                    padding: '0.75rem',
+                  }}
+                >
+                  <div style={{ fontSize: '0.775rem', color: '#1e40af', lineHeight: '1.35', marginBottom: '0.5rem' }}>
+                    ℹ️ {t('consent_note_text')}
+                  </div>
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '0.5rem',
+                      fontSize: '0.825rem',
+                      color: '#1e3a8a',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={hasConsent}
+                      onChange={(e) => setHasConsent(e.target.checked)}
+                      style={{ marginTop: '0.15rem' }}
+                    />
+                    <span>{t('consent_checkbox_label')}</span>
+                  </label>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={isReportSubmitting}
+                  style={{
+                    background: '#0d9488',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '0.85rem',
+                    fontSize: '1rem',
+                    fontWeight: 'bold',
+                    cursor: isReportSubmitting ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 6px rgba(13,148,136,0.2)',
+                    marginTop: '0.25rem',
+                  }}
+                >
+                  {isReportSubmitting ? t('btn_submitting_report') : t('btn_submit_report')}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+

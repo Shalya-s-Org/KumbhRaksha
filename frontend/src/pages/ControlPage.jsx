@@ -2,7 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Circle, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { fetchCrowdCurrent, fetchAlerts, triggerScenario, fetchIncidents, broadcastAlert } from '../api';
+import {
+  fetchCrowdCurrent,
+  fetchAlerts,
+  triggerScenario,
+  fetchIncidents,
+  broadcastAlert,
+  fetchReports,
+  fetchReportMatches,
+  reuniteReports,
+} from '../api';
 
 function getZoneColor(level) {
   switch (level) {
@@ -45,22 +54,31 @@ export default function ControlPage() {
   const [zones, setZones] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [incidents, setIncidents] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [matches, setMatches] = useState([]);
   const [selectedZoneId, setSelectedZoneId] = useState('1');
   const [scenarioStatus, setScenarioStatus] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reuniteMsg, setReuniteMsg] = useState(null);
+  const [reportFilter, setReportFilter] = useState('all'); // 'all', 'open', 'reunited'
+
 
   const loadData = async () => {
     try {
-      const [crowdData, alertData, incidentData] = await Promise.all([
+      const [crowdData, alertData, incidentData, reportData, matchData] = await Promise.all([
         fetchCrowdCurrent(),
         fetchAlerts(true),
         fetchIncidents(),
+        fetchReports(),
+        fetchReportMatches(),
       ]);
       setZones(crowdData);
       setAlerts(alertData);
       setIncidents(incidentData);
+      setReports(reportData);
+      setMatches(matchData);
       setLastUpdated(new Date());
       setError(null);
     } catch (err) {
@@ -111,6 +129,18 @@ export default function ControlPage() {
       setError(`Failed to broadcast alert: ${err.message}`);
     }
   };
+
+  const handleReunite = async (lostId, foundId) => {
+    try {
+      await reuniteReports(lostId, foundId);
+      setReuniteMsg(`Success! Reports #${lostId} (Lost) and #${foundId} (Found) marked as reunited.`);
+      setTimeout(() => setReuniteMsg(null), 6000);
+      await loadData();
+    } catch (err) {
+      setError(`Failed to reunite reports: ${err.message}`);
+    }
+  };
+
 
   // Map center around Ramkund Ghat, Nashik
   const center = [20.007, 73.793];
@@ -495,6 +525,231 @@ export default function ControlPage() {
           );
         })}
       </div>
+
+      {/* Reunited Success Banner */}
+      {reuniteMsg && (
+        <div style={{ background: '#ecfdf5', border: '1px solid #10b981', color: '#065f46', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>🎉</span> {reuniteMsg}
+        </div>
+      )}
+
+      {/* Lost & Found Management Section (SPEC.md Section 7 P1 #6) */}
+      <div style={{ marginTop: '1.5rem', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.75rem' }}>
+          <div>
+            <h2 style={{ margin: '0 0 0.2rem 0', fontSize: '1.25rem', color: '#0f766e', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span>🔍</span> Lost & Found Reunification Desk
+            </h2>
+            <div style={{ fontSize: '0.825rem', color: '#64748b' }}>
+              Real-time matching engine pairing reported missing persons with rescued pilgrims (name, age ±3 yrs, clothing keywords).
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748b', marginRight: '0.25rem' }}>Filter Reports:</span>
+            {['all', 'open', 'reunited'].map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setReportFilter(f)}
+                style={{
+                  padding: '0.25rem 0.6rem',
+                  borderRadius: '4px',
+                  border: reportFilter === f ? '1px solid #0f766e' : '1px solid #cbd5e1',
+                  background: reportFilter === f ? '#ccfbf1' : '#ffffff',
+                  color: reportFilter === f ? '#0f766e' : '#475569',
+                  fontSize: '0.775rem',
+                  fontWeight: reportFilter === f ? 'bold' : 'normal',
+                  textTransform: 'capitalize',
+                  cursor: 'pointer',
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Suggested Matches Section */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem', color: '#1e293b' }}>
+              🎯 Suggested Matches
+            </h3>
+            <span style={{ background: matches.length > 0 ? '#ccfbf1' : '#f1f5f9', color: matches.length > 0 ? '#0f766e' : '#64748b', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+              {matches.length} Candidates
+            </span>
+          </div>
+
+          {matches.length === 0 ? (
+            <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '1rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+              No candidate matches detected between open lost and found reports.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1rem' }}>
+              {matches.map((match, idx) => (
+                <div
+                  key={`match-${idx}`}
+                  style={{
+                    background: '#f0fdfa',
+                    border: '2px solid #14b8a6',
+                    borderRadius: '8px',
+                    padding: '0.85rem',
+                    boxShadow: '0 2px 4px rgba(20,184,166,0.1)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                    <span style={{ background: '#0f766e', color: '#ffffff', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                      Match Score: {match.score}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleReunite(match.lost.id, match.found.id)}
+                      style={{
+                        background: '#10b981',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '0.35rem 0.75rem',
+                        fontSize: '0.825rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 3px rgba(16,185,129,0.3)',
+                      }}
+                    >
+                      🤝 Mark Reunited
+                    </button>
+                  </div>
+
+                  {/* Reasons pills */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                    {match.reasons.map((r, rIdx) => (
+                      <span
+                        key={rIdx}
+                        style={{
+                          background: '#ccfbf1',
+                          color: '#115e59',
+                          padding: '0.15rem 0.45rem',
+                          borderRadius: '4px',
+                          fontSize: '0.725rem',
+                          fontWeight: '500',
+                        }}
+                      >
+                        ✓ {r}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Side-by-side comparison */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', fontSize: '0.825rem' }}>
+                    <div style={{ background: '#ffffff', padding: '0.6rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                      <div style={{ fontWeight: 'bold', color: '#dc2626', marginBottom: '0.25rem' }}>
+                        🔴 Lost #{match.lost.id}: {match.lost.name}
+                      </div>
+                      <div><strong>Age:</strong> {match.lost.age || 'Unknown'}</div>
+                      <div style={{ color: '#475569', marginTop: '0.25rem', fontSize: '0.775rem' }}>
+                        "{match.lost.description || 'No description'}"
+                      </div>
+                      {match.lost.reporter_phone && (
+                        <div style={{ color: '#1e40af', marginTop: '0.25rem', fontSize: '0.75rem' }}>
+                          📞 {match.lost.reporter_phone}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ background: '#ffffff', padding: '0.6rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                      <div style={{ fontWeight: 'bold', color: '#0d9488', marginBottom: '0.25rem' }}>
+                        🟢 Found #{match.found.id}: {match.found.name}
+                      </div>
+                      <div><strong>Age:</strong> {match.found.age || 'Unknown'}</div>
+                      <div style={{ color: '#475569', marginTop: '0.25rem', fontSize: '0.775rem' }}>
+                        "{match.found.description || 'No description'}"
+                      </div>
+                      {match.found.reporter_phone && (
+                        <div style={{ color: '#1e40af', marginTop: '0.25rem', fontSize: '0.75rem' }}>
+                          📞 {match.found.reporter_phone}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* All Reports List */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem', color: '#1e293b' }}>
+              📋 All Filed Reports
+            </h3>
+            <span style={{ background: '#f1f5f9', color: '#475569', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+              {reports.filter((r) => reportFilter === 'all' || r.status === reportFilter).length} Total
+            </span>
+          </div>
+
+          {reports.filter((r) => reportFilter === 'all' || r.status === reportFilter).length === 0 ? (
+            <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '1rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+              No reports matching the selected filter.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto' }}>
+              {reports
+                .filter((r) => reportFilter === 'all' || r.status === reportFilter)
+                .map((r) => (
+                  <div
+                    key={r.id}
+                    style={{
+                      borderLeft: `4px solid ${r.kind === 'lost' ? '#ef4444' : '#0d9488'}`,
+                      background: r.status === 'reunited' ? '#f8fafc' : '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      padding: '0.65rem',
+                      fontSize: '0.825rem',
+                      opacity: r.status === 'reunited' ? 0.75 : 1.0,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <span style={{ fontWeight: 'bold', color: r.kind === 'lost' ? '#b91c1c' : '#0f766e' }}>
+                        #{r.id} [{r.kind.toUpperCase()}] {r.name}
+                      </span>
+                      <span
+                        style={{
+                          background: r.status === 'reunited' ? '#dcfce7' : '#fef3c7',
+                          color: r.status === 'reunited' ? '#15803d' : '#92400e',
+                          padding: '0.1rem 0.35rem',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {r.status}
+                      </span>
+                    </div>
+
+                    <div style={{ color: '#475569', margin: '0.2rem 0' }}>
+                      <strong>Age:</strong> {r.age !== null ? `${r.age} yrs` : 'Unknown'}
+                    </div>
+
+                    {r.description && (
+                      <div style={{ color: '#334155', fontSize: '0.775rem', marginTop: '0.2rem', lineHeight: '1.3' }}>
+                        {r.description}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', paddingTop: '0.35rem', borderTop: '1px solid #f1f5f9', color: '#94a3b8', fontSize: '0.725rem' }}>
+                      <span>{r.reporter_phone ? `📞 ${r.reporter_phone}` : 'No phone'}</span>
+                      <span>{new Date(r.created_at).toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
+

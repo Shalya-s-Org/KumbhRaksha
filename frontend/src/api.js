@@ -117,6 +117,63 @@ export async function fetchMemberByToken(token) {
   return response.json();
 }
 
+export async function fileReport(reportData) {
+  const response = await fetch(`${API_BASE_URL}/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(reportData),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to file report: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchReports(kind = null, status = null) {
+  const params = new URLSearchParams();
+  if (kind) params.append('kind', kind);
+  if (status) params.append('status', status);
+  const queryStr = params.toString() ? `?${params.toString()}` : '';
+
+  const response = await fetch(`${API_BASE_URL}/reports${queryStr}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch reports: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchReportMatches() {
+  const response = await fetch(`${API_BASE_URL}/reports/matches`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch report matches: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function reuniteReports(lostId, foundId) {
+  const response = await fetch(`${API_BASE_URL}/reports/reunite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lost_id: lostId, found_id: foundId }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to reunite reports: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function updateReportStatus(reportId, status) {
+  const response = await fetch(`${API_BASE_URL}/reports/${reportId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to update report: ${response.status}`);
+  }
+  return response.json();
+}
+
 export default {
   checkHealth,
   fetchCrowdCurrent,
@@ -130,4 +187,10 @@ export default {
   createFamily,
   fetchFamily,
   fetchMemberByToken,
+  fileReport,
+  fetchReports,
+  fetchReportMatches,
+  reuniteReports,
+  updateReportStatus,
 };
+

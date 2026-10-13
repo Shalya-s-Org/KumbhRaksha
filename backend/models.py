@@ -130,3 +130,35 @@ class MemberDetailsOut(BaseModel):
     relation: Optional[str] = ""
     medical_note: Optional[str] = ""
     qr_token: str
+
+class ReportCreate(BaseModel):
+    kind: str  # "lost" | "found"
+    name: str
+    age: Optional[int] = None
+    description: Optional[str] = ""
+    reporter_phone: Optional[str] = ""
+    member_id: Optional[int] = None
+
+class ReportUpdate(BaseModel):
+    status: Optional[str] = None  # "open" | "reunited" | "closed"
+
+class ReportOut(BaseModel):
+    id: int
+    kind: str
+    name: str
+    age: Optional[int] = None
+    description: Optional[str] = ""
+    reporter_phone: Optional[str] = ""
+    member_id: Optional[int] = None
+    status: str
+    created_at: str
+
+class ReportMatchOut(BaseModel):
+    lost: ReportOut
+    found: ReportOut
+    score: int
+    reasons: List[str]
+
+class ReuniteRequest(BaseModel):
+    lost_id: int
+    found_id: int

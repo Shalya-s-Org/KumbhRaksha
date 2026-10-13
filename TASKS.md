@@ -46,11 +46,12 @@ Ordered task list following `SPEC.md` and `AGENT.md`. Work on one task at a time
   - Endpoint `GET /members/by-token/{token}`.
   - *Acceptance Check:* Visiting `/scan/:token` displays member details and family phone correctly.
 
-- [ ] **Task 8: Lost-and-Found Matching System**
-  - Reporting forms for `lost` and `found` persons.
+- [x] **Task 8: Lost-and-Found Matching System**
+  - Reporting forms for `lost` and `found` persons with privacy consent notice.
   - Matching algorithm on `/control` comparing names, ages (within 3 years), and keywords.
   - "Mark Reunited" action closing matched reports.
   - *Acceptance Check:* Filing lost and found reports shows match candidate on `/control` and allows reunion.
+
 
 - [ ] **Task 9: SMS / WhatsApp Chat Simulator (/chat-sim)**
   - Simulated chat interface calling `POST /chat/message`.

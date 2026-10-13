@@ -24,7 +24,13 @@ from backend.models import (
     FamilyOut,
     MemberOut,
     MemberDetailsOut,
+    ReportCreate,
+    ReportUpdate,
+    ReportOut,
+    ReportMatchOut,
+    ReuniteRequest,
 )
+from backend.matching import find_suggested_matches
 from backend.simulator import (
     start_simulator,
     stop_simulator,
@@ -407,3 +413,141 @@ def get_member_by_token(token: str):
         raise HTTPException(status_code=404, detail="Member QR token not found")
 
     return dict(row)
+
+@app.post("/reports", response_model=ReportOut)
+def create_report(body: ReportCreate):
+    """File a missing or found person report with consent."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    cursor.execute(
+        """
+        INSERT INTO missing_reports (kind, name, age, description, reporter_phone, member_id, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'open', ?)
+        """,
+        (
+            body.kind.strip().lower(),
+            body.name.strip(),
+            body.age,
+            (body.description or "").strip(),
+            (body.reporter_phone or "").strip(),
+            body.member_id,
+            now_iso,
+        ),
+    )
+    report_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    return ReportOut(
+        id=report_id,
+        kind=body.kind.strip().lower(),
+        name=body.name.strip(),
+        age=body.age,
+        description=(body.description or "").strip(),
+        reporter_phone=(body.reporter_phone or "").strip(),
+        member_id=body.member_id,
+        status="open",
+        created_at=now_iso,
+    )
+
+@app.get("/reports", response_model=List[ReportOut])
+def list_reports(kind: Optional[str] = None, status: Optional[str] = None):
+    """List missing and found person reports."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = "SELECT id, kind, name, age, description, reporter_phone, member_id, status, created_at FROM missing_reports"
+    conditions = []
+    params = []
+
+    if kind:
+        conditions.append("kind = ?")
+        params.append(kind.strip().lower())
+    if status:
+        conditions.append("status = ?")
+        params.append(status.strip().lower())
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY id DESC"
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [ReportOut(**dict(r)) for r in rows]
+
+@app.get("/reports/matches", response_model=List[ReportMatchOut])
+def get_report_matches():
+    """Retrieve suggested matches between open lost reports and found reports."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id, kind, name, age, description, reporter_phone, member_id, status, created_at FROM missing_reports WHERE kind = 'lost' AND status = 'open'"
+    )
+    lost_rows = [dict(r) for r in cursor.fetchall()]
+
+    cursor.execute(
+        "SELECT id, kind, name, age, description, reporter_phone, member_id, status, created_at FROM missing_reports WHERE kind = 'found' AND status = 'open'"
+    )
+    found_rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    suggested = find_suggested_matches(lost_rows, found_rows, min_score=35)
+    result = []
+    for m in suggested:
+        result.append(
+            ReportMatchOut(
+                lost=ReportOut(**m["lost"]),
+                found=ReportOut(**m["found"]),
+                score=m["score"],
+                reasons=m["reasons"],
+            )
+        )
+    return result
+
+@app.patch("/reports/{report_id}", response_model=ReportOut)
+def update_report(report_id: int, body: ReportUpdate):
+    """Update report status (e.g. 'reunited')."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, kind, name, age, description, reporter_phone, member_id, status, created_at FROM missing_reports WHERE id = ?",
+        (report_id,),
+    )
+    existing = cursor.fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    new_status = body.status if body.status is not None else existing["status"]
+    cursor.execute(
+        "UPDATE missing_reports SET status = ? WHERE id = ?",
+        (new_status, report_id),
+    )
+    conn.commit()
+
+    cursor.execute(
+        "SELECT id, kind, name, age, description, reporter_phone, member_id, status, created_at FROM missing_reports WHERE id = ?",
+        (report_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return ReportOut(**dict(row))
+
+@app.post("/reports/reunite")
+def reunite_reports(body: ReuniteRequest):
+    """Mark both matched lost and found reports as reunited."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE missing_reports SET status = 'reunited' WHERE id = ?", (body.lost_id,))
+    cursor.execute("UPDATE missing_reports SET status = 'reunited' WHERE id = ?", (body.found_id,))
+    conn.commit()
+    conn.close()
+    return {
+        "status": "ok",
+        "message": "Reports marked as reunited",
+        "lost_id": body.lost_id,
+        "found_id": body.found_id,
+    }
