@@ -51,3 +51,31 @@ class AlertOut(BaseModel):
     suggested_action: Optional[str] = None
     created_at: str
     active: int
+
+class IncidentCreate(BaseModel):
+    type: str  # "medical" | "lost" | "crowd"
+    source: str = "web"  # "web" | "chat"
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    landmark_code: Optional[str] = None
+    zone_id: Optional[int] = None
+    phone: Optional[str] = None
+
+class IncidentUpdate(BaseModel):
+    status: Optional[str] = None  # "open" | "assigned" | "resolved"
+    responder_id: Optional[int] = None
+
+class IncidentOut(BaseModel):
+    id: int
+    type: str
+    source: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    zone_id: Optional[int] = None
+    zone_name: Optional[str] = None
+    phone: Optional[str] = None
+    status: str
+    responder_id: Optional[int] = None
+    responder_name: Optional[str] = None
+    responder_kind: Optional[str] = None
+    created_at: str

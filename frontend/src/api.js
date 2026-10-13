@@ -40,9 +40,43 @@ export async function triggerScenario(scenario, zoneId = null) {
   return response.json();
 }
 
+export async function fetchLandmarks() {
+  const response = await fetch(`${API_BASE_URL}/landmarks`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch landmarks: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function reportIncident(incidentData) {
+  const response = await fetch(`${API_BASE_URL}/incidents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(incidentData),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to report incident: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchIncidents(status = null) {
+  const url = status
+    ? `${API_BASE_URL}/incidents?status=${encodeURIComponent(status)}`
+    : `${API_BASE_URL}/incidents`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch incidents: ${response.status}`);
+  }
+  return response.json();
+}
+
 export default {
   checkHealth,
   fetchCrowdCurrent,
   fetchAlerts,
   triggerScenario,
+  fetchLandmarks,
+  reportIncident,
+  fetchIncidents,
 };

@@ -29,7 +29,7 @@ Ordered task list following `SPEC.md` and `AGENT.md`. Work on one task at a time
   - Polling every 3 seconds for live updates.
   - *Acceptance Check:* `/control` displays map zones with live updating counts, colors reflect density, manual surge scenario reflects in UI.
 
-- [ ] **Task 5: SOS Incident Reporting & Nearest Responder Dispatch**
+- [x] **Task 5: SOS Incident Reporting & Nearest Responder Dispatch**
   - Pilgrim SOS button with type (medical, lost, crowd) and GPS / landmark dropdown.
   - Incident persistence and nearest available responder assignment via haversine distance.
   - Live incident feed and map markers on `/control`.

@@ -1,7 +1,7 @@
 import os
 from contextlib import asynccontextmanager
-from typing import List
-from fastapi import FastAPI
+from typing import List, Optional
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -13,6 +13,9 @@ from backend.models import (
     CrowdCurrentOut,
     ScenarioRequest,
     AlertOut,
+    IncidentCreate,
+    IncidentUpdate,
+    IncidentOut,
 )
 from backend.simulator import (
     start_simulator,
@@ -20,6 +23,7 @@ from backend.simulator import (
     get_current_crowd,
     set_scenario,
 )
+from backend.dispatch import create_incident
 
 # Load environment variables
 load_dotenv()
@@ -115,3 +119,106 @@ def get_alerts(active_only: bool = True):
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+@app.post("/incidents", response_model=IncidentOut)
+def report_incident(body: IncidentCreate):
+    """Report an emergency SOS incident and assign nearest available responder."""
+    conn = get_connection()
+    res = create_incident(
+        conn=conn,
+        incident_type=body.type,
+        source=body.source,
+        lat=body.lat,
+        lng=body.lng,
+        landmark_code=body.landmark_code,
+        zone_id=body.zone_id,
+        phone=body.phone,
+    )
+    incident_id = res["id"]
+
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT i.id, i.type, i.source, i.lat, i.lng, i.zone_id, z.name as zone_name,
+               i.phone, i.status, i.responder_id, r.name as responder_name, r.kind as responder_kind,
+               i.created_at
+        FROM incidents i
+        LEFT JOIN responders r ON i.responder_id = r.id
+        LEFT JOIN zones z ON i.zone_id = z.id
+        WHERE i.id = ?
+        """,
+        (incident_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=500, detail="Failed to retrieve created incident")
+    return dict(row)
+
+@app.get("/incidents", response_model=List[IncidentOut])
+def list_incidents(status: Optional[str] = None):
+    """List all reported emergency incidents with assigned responder details."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT i.id, i.type, i.source, i.lat, i.lng, i.zone_id, z.name as zone_name,
+               i.phone, i.status, i.responder_id, r.name as responder_name, r.kind as responder_kind,
+               i.created_at
+        FROM incidents i
+        LEFT JOIN responders r ON i.responder_id = r.id
+        LEFT JOIN zones z ON i.zone_id = z.id
+    """
+    params = []
+    if status:
+        query += " WHERE i.status = ?"
+        params.append(status)
+    query += " ORDER BY i.id DESC"
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+@app.patch("/incidents/{incident_id}", response_model=IncidentOut)
+def update_incident(incident_id: int, body: IncidentUpdate):
+    """Update incident status or assigned responder."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, status, responder_id FROM incidents WHERE id = ?", (incident_id,))
+    existing = cursor.fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    new_status = body.status if body.status is not None else existing["status"]
+    new_resp_id = body.responder_id if body.responder_id is not None else existing["responder_id"]
+
+    cursor.execute(
+        "UPDATE incidents SET status = ?, responder_id = ? WHERE id = ?",
+        (new_status, new_resp_id, incident_id),
+    )
+
+    # If resolved, release responder back to available
+    if new_status == "resolved" and existing["responder_id"]:
+        cursor.execute(
+            "UPDATE responders SET status = 'available' WHERE id = ?",
+            (existing["responder_id"],),
+        )
+
+    conn.commit()
+
+    cursor.execute(
+        """
+        SELECT i.id, i.type, i.source, i.lat, i.lng, i.zone_id, z.name as zone_name,
+               i.phone, i.status, i.responder_id, r.name as responder_name, r.kind as responder_kind,
+               i.created_at
+        FROM incidents i
+        LEFT JOIN responders r ON i.responder_id = r.id
+        LEFT JOIN zones z ON i.zone_id = z.id
+        WHERE i.id = ?
+        """,
+        (incident_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row)
