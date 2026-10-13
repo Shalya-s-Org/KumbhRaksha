@@ -1,0 +1,46 @@
+{
+  "_note": "ILLUSTRATIVE SAMPLE DATA ONLY. Zone coordinates are approximate positions near Ramkund, Nashik, placed for the demo; verify and replace with real surveyed points before any real use. All names and phone numbers are fake.",
+  "zones": [
+    {"id": 1, "name": "Ramkund Ghat", "lat": 20.0067, "lng": 73.7915, "area_m2": 6000, "baseline_count": 6500},
+    {"id": 2, "name": "Gandhi Talao Approach", "lat": 20.0049, "lng": 73.7931, "area_m2": 4500, "baseline_count": 4000},
+    {"id": 3, "name": "Panchavati Main Road", "lat": 20.0085, "lng": 73.7898, "area_m2": 5000, "baseline_count": 5200},
+    {"id": 4, "name": "Kapaleshwar Gate", "lat": 20.0078, "lng": 73.7935, "area_m2": 3500, "baseline_count": 3000},
+    {"id": 5, "name": "Tapovan Bridge Approach", "lat": 20.0105, "lng": 73.7960, "area_m2": 4000, "baseline_count": 3800},
+    {"id": 6, "name": "Medical Camp Road", "lat": 20.0040, "lng": 73.7900, "area_m2": 3000, "baseline_count": 1800}
+  ],
+  "responders": [
+    {"id": 1, "name": "Medical Team A", "kind": "medical", "lat": 20.0060, "lng": 73.7910, "status": "available"},
+    {"id": 2, "name": "Medical Team B", "kind": "medical", "lat": 20.0090, "lng": 73.7940, "status": "available"},
+    {"id": 3, "name": "Medical Team C", "kind": "medical", "lat": 20.0042, "lng": 73.7902, "status": "available"},
+    {"id": 4, "name": "Volunteer Group 1", "kind": "volunteer", "lat": 20.0070, "lng": 73.7920, "status": "available"},
+    {"id": 5, "name": "Volunteer Group 2", "kind": "volunteer", "lat": 20.0082, "lng": 73.7900, "status": "available"},
+    {"id": 6, "name": "Volunteer Group 3", "kind": "volunteer", "lat": 20.0100, "lng": 73.7955, "status": "available"},
+    {"id": 7, "name": "Police Patrol 1", "kind": "police", "lat": 20.0055, "lng": 73.7925, "status": "available"},
+    {"id": 8, "name": "Police Patrol 2", "kind": "police", "lat": 20.0095, "lng": 73.7930, "status": "available"}
+  ],
+  "landmark_codes": [
+    {"code": "G1A", "zone_id": 1, "lat": 20.0069, "lng": 73.7913, "label": "Ramkund Ghat, north steps"},
+    {"code": "G1B", "zone_id": 1, "lat": 20.0065, "lng": 73.7918, "label": "Ramkund Ghat, south steps"},
+    {"code": "G2A", "zone_id": 2, "lat": 20.0049, "lng": 73.7931, "label": "Gandhi Talao, main gate"},
+    {"code": "G3B", "zone_id": 3, "lat": 20.0085, "lng": 73.7898, "label": "Panchavati Road, Gate B"},
+    {"code": "G4A", "zone_id": 4, "lat": 20.0078, "lng": 73.7935, "label": "Kapaleshwar Gate, entry"},
+    {"code": "G5A", "zone_id": 5, "lat": 20.0105, "lng": 73.7960, "label": "Tapovan Bridge, east end"},
+    {"code": "M6A", "zone_id": 6, "lat": 20.0040, "lng": 73.7900, "label": "Medical camp entrance"}
+  ],
+  "demo_family": {
+    "code": "DEMO001",
+    "head_name": "Demo Head",
+    "phone": "9000000000",
+    "members": [
+      {"name": "Sunita Demo", "age": 68, "relation": "mother", "medical_note": "Diabetic, takes insulin", "qr_token": "demo-token-sunita"},
+      {"name": "Aarav Demo", "age": 6, "relation": "son", "medical_note": "", "qr_token": "demo-token-aarav"}
+    ]
+  },
+  "demo_found_report": {
+    "kind": "found",
+    "name": "Aarav",
+    "age": 6,
+    "description": "Boy in a blue shirt found near Ramkund north steps",
+    "reporter_phone": "9000000001"
+  }
+}
