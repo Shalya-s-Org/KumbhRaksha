@@ -6,8 +6,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from backend.database import init_db, get_connection
-from backend.models import ZoneOut, ResponderOut, LandmarkOut, CrowdCurrentOut
-from backend.simulator import start_simulator, stop_simulator, get_current_crowd
+from backend.models import (
+    ZoneOut,
+    ResponderOut,
+    LandmarkOut,
+    CrowdCurrentOut,
+    ScenarioRequest,
+    AlertOut,
+)
+from backend.simulator import (
+    start_simulator,
+    stop_simulator,
+    get_current_crowd,
+    set_scenario,
+)
 
 # Load environment variables
 load_dotenv()
@@ -77,5 +89,29 @@ def get_landmarks():
 
 @app.get("/crowd/current", response_model=List[CrowdCurrentOut])
 def get_crowd_current():
-    """Get current simulated crowd count and density levels across all zones."""
+    """Get current simulated crowd count, density, and 20-tick forecast across all zones."""
     return get_current_crowd()
+
+@app.post("/simulator/scenario")
+def trigger_scenario(body: ScenarioRequest):
+    """Trigger simulator demo scenario ('surge' or 'reset')."""
+    return set_scenario(body.scenario, body.zone_id)
+
+@app.get("/alerts", response_model=List[AlertOut])
+def get_alerts(active_only: bool = True):
+    """List system alerts, default active alerts only."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT a.id, a.zone_id, z.name as zone_name, a.level, a.message_en, a.message_hi, a.message_mr,
+               a.suggested_action, a.created_at, a.active
+        FROM alerts a
+        LEFT JOIN zones z ON a.zone_id = z.id
+    """
+    if active_only:
+        query += " WHERE a.active = 1"
+    query += " ORDER BY a.id DESC"
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]

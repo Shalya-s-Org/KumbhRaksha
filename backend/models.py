@@ -35,3 +35,19 @@ class CrowdCurrentOut(BaseModel):
     level: str
     forecast_density: Optional[float] = None
     forecast_level: Optional[str] = None
+
+class ScenarioRequest(BaseModel):
+    scenario: str
+    zone_id: Optional[int] = None
+
+class AlertOut(BaseModel):
+    id: int
+    zone_id: int
+    zone_name: Optional[str] = None
+    level: str
+    message_en: Optional[str] = None
+    message_hi: Optional[str] = None
+    message_mr: Optional[str] = None
+    suggested_action: Optional[str] = None
+    created_at: str
+    active: int

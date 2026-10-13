@@ -15,7 +15,7 @@ Ordered task list following `SPEC.md` and `AGENT.md`. Work on one task at a time
   - Endpoints: `GET /zones`, `GET /landmarks`, `GET /responders`.
   - *Acceptance Check:* Seed script populates DB without errors, endpoints return seeded records, pytest verifies DB seed.
 
-- [ ] **Task 3: Crowd Simulator & scikit-learn Forecast Engine**
+- [x] **Task 3: Crowd Simulator & scikit-learn Forecast Engine**
   - Background task ticking every 3 seconds (1 simulated minute).
   - Density drift per zone and `LinearRegression` 20-tick forecast.
   - Automatic surge warning alerts with suggested actions when predicted density crosses 4.
