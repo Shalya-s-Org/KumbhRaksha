@@ -23,3 +23,15 @@ class LandmarkOut(BaseModel):
     lat: float
     lng: float
     label: str
+
+class CrowdCurrentOut(BaseModel):
+    zone_id: int
+    name: str
+    lat: float
+    lng: float
+    area_m2: float
+    count: int
+    density: float
+    level: str
+    forecast_density: Optional[float] = None
+    forecast_level: Optional[str] = None

@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from backend.database import init_db, get_connection
-from backend.models import ZoneOut, ResponderOut, LandmarkOut
+from backend.models import ZoneOut, ResponderOut, LandmarkOut, CrowdCurrentOut
+from backend.simulator import start_simulator, stop_simulator, get_current_crowd
 
 # Load environment variables
 load_dotenv()
@@ -15,7 +16,11 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     # Ensure database schema is initialized on startup
     init_db()
+    # Start background crowd simulator
+    start_simulator()
     yield
+    # Stop background crowd simulator on shutdown
+    stop_simulator()
 
 app = FastAPI(
     title="KumbhRaksha API",
@@ -69,3 +74,8 @@ def get_landmarks():
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+@app.get("/crowd/current", response_model=List[CrowdCurrentOut])
+def get_crowd_current():
+    """Get current simulated crowd count and density levels across all zones."""
+    return get_current_crowd()

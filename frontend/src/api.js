@@ -8,6 +8,15 @@ export async function checkHealth() {
   return response.json();
 }
 
+export async function fetchCrowdCurrent() {
+  const response = await fetch(`${API_BASE_URL}/crowd/current`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch current crowd data: ${response.status}`);
+  }
+  return response.json();
+}
+
 export default {
   checkHealth,
+  fetchCrowdCurrent,
 };
